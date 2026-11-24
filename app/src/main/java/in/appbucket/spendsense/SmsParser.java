@@ -18,6 +18,7 @@ public final class SmsParser {
         public String mode;        // UPI / Card / ATM / Bank
         public String bank;        // e.g. HDFC, or ""
         public String category;
+        public long date;          // epoch millis read from the SMS text, or 0 if none found
 
         @Override public String toString() {
             return String.format(Locale.US, "%s %.2f | %s | %s | %s | %s | a/c %s",
@@ -94,7 +95,59 @@ public final class SmsParser {
         r.mode = findMode(text);
         r.bank = bankFromSender(sender, text);
         r.category = r.debit ? Categorizer.categorize(r.merchant + " " + text) : "Income";
+        r.date = findDate(text, System.currentTimeMillis());
         return r;
+    }
+
+    private static final String MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec";
+    private static final Pattern DATE_ISO = Pattern.compile("\\b(20\\d{2})-(\\d{1,2})-(\\d{1,2})\\b");
+    private static final Pattern DATE_MON = Pattern.compile(
+            "(?i)\\b(\\d{1,2})[-/ ]?(" + MONTHS + ")[a-z]*[-/ ,]*(\\d{4}|\\d{2})(?!\\d)");
+    private static final Pattern DATE_NUM = Pattern.compile("\\b(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4}|\\d{2})(?!\\d)");
+
+    /** Reads the transaction date written in the SMS (Indian day-first order). Returns 0 if none. */
+    public static long findDate(String text, long now) {
+        Matcher m = DATE_ISO.matcher(text);
+        if (m.find()) {
+            long d = makeDate(int_(m.group(1)), int_(m.group(2)), int_(m.group(3)), now);
+            if (d > 0) return d;
+        }
+        m = DATE_MON.matcher(text);
+        while (m.find()) {
+            int mon = MONTHS.indexOf(m.group(2).toLowerCase(Locale.ROOT)) / 4 + 1;
+            long d = makeDate(year(m.group(3)), mon, int_(m.group(1)), now);
+            if (d > 0) return d;
+        }
+        m = DATE_NUM.matcher(text);
+        while (m.find()) {
+            long d = makeDate(year(m.group(3)), int_(m.group(2)), int_(m.group(1)), now);
+            if (d > 0) return d;
+        }
+        return 0;
+    }
+
+    private static int int_(String s) {
+        return Integer.parseInt(s);
+    }
+
+    private static int year(String y) {
+        int v = Integer.parseInt(y);
+        return v < 100 ? 2000 + v : v;
+    }
+
+    private static long makeDate(int y, int mon, int d, long now) {
+        if (y < 2000 || mon < 1 || mon > 12 || d < 1 || d > 31) return 0;
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setLenient(false);
+        c.clear();
+        try {
+            c.set(y, mon - 1, d, 12, 0, 0);
+            long t = c.getTimeInMillis();
+            if (t > now + 36L * 60 * 60 * 1000) return 0; // not a future date
+            return t;
+        } catch (IllegalArgumentException e) {
+            return 0;
+        }
     }
 
     private static Double findAmount(String text) {

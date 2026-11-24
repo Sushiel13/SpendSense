@@ -38,21 +38,26 @@ jobs:
           fi
 
       - name: Unit tests (SMS parser)
-        run: gradle testDebugUnitTest --no-daemon
+        run: gradle testLiteDebugUnitTest --no-daemon
 
-      - name: Build release APK
+      - name: Build release APKs and Play bundle
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          gradle assembleRelease --no-daemon
-          cp app/build/outputs/apk/release/app-release.apk SpendSense.apk
+          gradle assembleLiteRelease assembleFullRelease bundleFullRelease --no-daemon
+          cp app/build/outputs/apk/lite/release/app-lite-release.apk SpendSense.apk
+          cp app/build/outputs/apk/full/release/app-full-release.apk SpendSense-full.apk
+          cp app/build/outputs/bundle/fullRelease/app-full-release.aab SpendSense-full-play.aab
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SpendSense-apk
-          path: SpendSense.apk
+          name: SpendSense
+          path: |
+            SpendSense.apk
+            SpendSense-full.apk
+            SpendSense-full-play.aab
 
       - name: Read app version
         id: ver
@@ -65,4 +70,7 @@ jobs:
           tag_name: v${{ steps.ver.outputs.version }}
           name: SpendSense ${{ steps.ver.outputs.version }}
           target_commitish: ${{ github.sha }}
-          files: SpendSense.apk
+          files: |
+            SpendSense.apk
+            SpendSense-full.apk
+            SpendSense-full-play.aab

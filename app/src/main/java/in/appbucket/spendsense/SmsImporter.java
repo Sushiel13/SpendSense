@@ -43,6 +43,29 @@ public final class SmsImporter {
         return e;
     }
 
+    /**
+     * Imports SMS text the user shared or pasted (sender unknown, date read from the text).
+     * Returns null if it isn't a transaction, or an Expense with id -1 if it was already added.
+     */
+    public static Expense handleText(Context ctx, String body) {
+        SmsParser.Result r = SmsParser.parse("", body);
+        if (r == null) return null;
+        Expense e = new Expense();
+        e.smsKey = keyFor("", body);
+        e.ts = r.date > 0 ? r.date : System.currentTimeMillis();
+        e.amount = r.amount;
+        e.debit = r.debit;
+        e.merchant = r.merchant;
+        e.category = r.category;
+        e.mode = r.mode;
+        e.bank = r.bank;
+        e.account = r.account;
+        e.smsBody = body;
+        long id = ExpenseDb.get(ctx).insertIfNew(e);
+        e.id = id;
+        return e;
+    }
+
     /** Scans the SMS inbox from {@code sinceMillis}. Returns how many new transactions were added. */
     public static int scanInbox(Context ctx, long sinceMillis) {
         int added = 0;

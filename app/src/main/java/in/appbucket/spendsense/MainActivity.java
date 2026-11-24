@@ -71,8 +71,80 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         getWindow().setStatusBarColor(PRIMARY);
         month.set(Calendar.DAY_OF_MONTH, 1);
-        if (hasSms()) showMain();
+        if (!BuildConfig.SMS_AUTO || hasSms() || prefs.getBoolean("skipOnboarding", false)) showMain();
         else showOnboarding();
+        handleShare(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (list == null) showMain();
+        handleShare(intent);
+    }
+
+    /** Bank SMS shared from the Messages app (long-press -> Share -> SpendSense). */
+    private void handleShare(Intent intent) {
+        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        CharSequence cs = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+        intent.setAction(Intent.ACTION_MAIN); // don't re-import on rotation
+        if (cs == null || cs.toString().trim().isEmpty()) return;
+        if (list == null) showMain();
+        importText(cs.toString(), true);
+    }
+
+    /** Imports one or more pasted/shared SMS. Separate messages with a blank line. */
+    private void importText(String text, boolean openSingle) {
+        String[] parts = text.trim().split("\\n\\s*\\n");
+        int added = 0, dup = 0, notTx = 0;
+        Expense last = null;
+        for (String part : parts) {
+            if (part.trim().isEmpty()) continue;
+            Expense e = SmsImporter.handleText(this, part.trim());
+            if (e == null) notTx++;
+            else if (e.id == -1) dup++;
+            else { added++; last = e; }
+        }
+        if (last != null) {
+            month.setTimeInMillis(last.ts);
+            month.set(Calendar.DAY_OF_MONTH, 1);
+        }
+        refresh();
+        String msg;
+        if (added == 0 && dup > 0) msg = "Already added";
+        else if (added == 0) msg = "No transaction found. Paste a bank, UPI or card SMS, or tap + Add.";
+        else msg = added + " transaction" + (added == 1 ? "" : "s") + " added"
+                + (dup > 0 ? ", " + dup + " already there" : "")
+                + (notTx > 0 ? ", " + notTx + " skipped" : "");
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        if (openSingle && added == 1 && last != null) editDialog(last);
+    }
+
+    private void pasteDialog() {
+        EditText box = new EditText(this);
+        box.setHint("Paste bank / UPI / card SMS here.\nPut a blank line between messages.");
+        box.setMinLines(6);
+        box.setGravity(Gravity.TOP);
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip() != null
+                && cm.getPrimaryClip().getItemCount() > 0) {
+            CharSequence clip = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+            if (clip != null) box.setText(clip);
+        }
+        LinearLayout f = vbox();
+        f.setPadding(dp(20), dp(8), dp(20), 0);
+        f.addView(box);
+        TextView tip = text("Quicker: in Messages, long-press a bank SMS → Share → SpendSense.", 12, GREY, false);
+        tip.setPadding(0, dp(8), 0, 0);
+        f.addView(tip);
+        new AlertDialog.Builder(this)
+                .setTitle("Add from SMS")
+                .setView(f)
+                .setPositiveButton("Add", (d, w) -> importText(box.getText().toString(), false))
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     @Override
@@ -82,6 +154,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean hasSms() {
+        if (!BuildConfig.SMS_AUTO) return false;
         return checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -116,7 +189,10 @@ public class MainActivity extends Activity {
         root.addView(allow, new LinearLayout.LayoutParams(-1, dp(52)));
 
         Button manual = flatButton("Continue without SMS (manual entry)");
-        manual.setOnClickListener(v -> showMain());
+        manual.setOnClickListener(v -> {
+            prefs.edit().putBoolean("skipOnboarding", true).apply();
+            showMain();
+        });
         root.addView(manual);
         setContentView(root);
     }
@@ -177,11 +253,12 @@ public class MainActivity extends Activity {
         LinearLayout bar = hbox();
         bar.setPadding(dp(8), dp(8), dp(8), dp(8));
         bar.setBackgroundColor(Color.WHITE);
-        Button scan = button("Scan SMS", PRIMARY);
+        Button scan = button(BuildConfig.SMS_AUTO ? "Scan SMS" : "Paste SMS", PRIMARY);
         Button add = button("+ Add", GREEN);
         Button export = button("Export", DARK);
         scan.setOnClickListener(v -> {
-            if (hasSms()) scan(false);
+            if (!BuildConfig.SMS_AUTO) pasteDialog();
+            else if (hasSms()) scan(false);
             else showOnboarding();
         });
         add.setOnClickListener(v -> editDialog(null));
@@ -307,10 +384,13 @@ public class MainActivity extends Activity {
         summaryBox.addView(chips);
 
         if (shown.isEmpty()) {
-            TextView empty = text(hasSms()
-                    ? "No transactions for this month yet.\nTap \"Scan SMS\" to check your inbox, or \"+ Add\" for cash spends."
-                    : "SMS access is off. Tap \"Scan SMS\" to turn on automatic tracking, or \"+ Add\" to enter spends manually.",
-                    14, GREY, false);
+            String hint;
+            if (!BuildConfig.SMS_AUTO) hint = "No transactions for this month yet.\n\n"
+                    + "To add a bank SMS: open Messages, long-press the SMS, tap Share, then pick SpendSense.\n\n"
+                    + "Or copy one or more SMS and tap \"Paste SMS\". Use \"+ Add\" for cash spends.";
+            else if (hasSms()) hint = "No transactions for this month yet.\nTap \"Scan SMS\" to check your inbox, or \"+ Add\" for cash spends.";
+            else hint = "SMS access is off. Tap \"Scan SMS\" to turn on automatic tracking, or \"+ Add\" to enter spends manually.";
+            TextView empty = text(hint, 14, GREY, false);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(16), dp(32), dp(16), dp(32));
             summaryBox.addView(empty);

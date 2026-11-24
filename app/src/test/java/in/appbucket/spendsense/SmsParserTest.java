@@ -40,4 +40,21 @@ public class SmsParserTest {
         check("VM-HDFCBK", "Money Received - INR 300.00 in your HDFC Bank A/c xx1234 on 12-11-26 by A/c linked to VPA ramesh.k@okaxis (UPI Ref No 431212121212).", 300.0, false, "Ramesh K");
         check("VM-SBIUPI", "Rs 750 will be debited from your a/c on 15-11-26 for AutoPay mandate towards NETFLIX", null, null, null);
     }
+
+    @Test
+    public void readsDateFromText() {
+        long now = System.currentTimeMillis();
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        String[][] cases = {
+                {"debited by 1200.0 on date 12Nov26 trf to ZOMATO", "2026-11-12"},
+                {"Rs 499.00 on 12-Nov-26; NETFLIX credited", "2026-11-12"},
+                {"spent at AMAZON on 2026-11-12:10:00:00.", "2026-11-12"},
+                {"to Swiggy On 12/11/26 Ref 4321", "2026-11-12"},
+                {"Call 1800-111-109 no date here", "none"},
+        };
+        for (String[] c : cases) {
+            long d = SmsParser.findDate(c[0], now);
+            assertEquals(c[0], c[1], d == 0 ? "none" : f.format(new java.util.Date(d)));
+        }
+    }
 }
