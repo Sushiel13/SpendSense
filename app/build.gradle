@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing comes from environment variables (set by the GitHub workflow from repo secrets).
+// Without them the release APK is signed with the debug key so the build still works.
+def ksFile = System.getenv("KEYSTORE_FILE")
+
+android {
+    namespace 'in.appbucket.spendsense'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'in.appbucket.spendsense'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig ksFile ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
