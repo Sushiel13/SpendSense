@@ -6,11 +6,15 @@ Android app that reads bank, UPI and card SMS and turns them into an expense tra
 | Build | File | Install from | How SMS get in |
 |---|---|---|---|
 | **lite** | `SpendSense.apk` | appbucket.in / any website | Share a bank SMS to the app, or paste SMS |
-| **full** | `SpendSense-full-play.aab` | Google Play only | Reads the inbox and new SMS automatically |
+| **full** ("SpendSense Auto", package `.auto`) | `SpendSense-full.apk` / `SpendSense-full-play.aab` | Google Play, or USB (adb) on your own phone | Reads the whole inbox and new SMS automatically |
 
 Why two: in India, Google Play Protect blocks installing any app from a website, file manager or chat app
 if it asks for `READ_SMS`, `RECEIVE_SMS`, notification access or Accessibility ("enhanced fraud protection").
-The lite build asks for none of these, so it installs normally. The full build must come from Google Play.
+The lite build asks for none of these, so it installs normally. The full build must come from Google Play,
+or be installed over USB with `adb install SpendSense-full.apk` (adb isn't an internet-sideloading source).
+
+Both builds are signed with the fixed key in `app/signing/` unless the `KEYSTORE_*` secrets are set,
+so sideloaded updates install over each other. Google Play needs your own key (set the secrets).
 
 ## What it does
 - **Scans your SMS inbox** (last 6 months on first run) and adds every debit/credit it finds
