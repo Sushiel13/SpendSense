@@ -25,6 +25,11 @@ public class ExpenseDb extends SQLiteOpenHelper {
     }
 
     @Override
+    public void onConfigure(SQLiteDatabase db) {
+        db.enableWriteAheadLogging(); // lets the UI read while a scan is writing
+    }
+
+    @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE expenses (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -132,6 +137,28 @@ public class ExpenseDb extends SQLiteOpenHelper {
         Map<String, Double> sorted = new LinkedHashMap<>();
         for (Map.Entry<String, Double> en : entries) sorted.put(en.getKey(), en.getValue());
         return sorted;
+    }
+
+    /** Merchant -> [total, count] of spends, highest total first. */
+    public static List<Object[]> byMerchant(List<Expense> list) {
+        Map<String, double[]> m = new LinkedHashMap<>();
+        for (Expense e : list) {
+            if (!e.debit) continue;
+            double[] cur = m.get(e.merchant);
+            if (cur == null) { cur = new double[2]; m.put(e.merchant, cur); }
+            cur[0] += e.amount;
+            cur[1] += 1;
+        }
+        List<Object[]> out = new ArrayList<>();
+        for (Map.Entry<String, double[]> en : m.entrySet()) out.add(new Object[]{en.getKey(), en.getValue()[0], (int) en.getValue()[1]});
+        java.util.Collections.sort(out, (a, b) -> Double.compare((Double) b[1], (Double) a[1]));
+        return out;
+    }
+
+    public int count() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM expenses WHERE hidden=0", null)) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
     }
 
     private static ContentValues toValues(Expense e) {

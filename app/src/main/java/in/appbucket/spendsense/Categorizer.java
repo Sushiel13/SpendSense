@@ -36,6 +36,24 @@ public final class Categorizer {
 
     private Categorizer() {}
 
+    private static final Object[][] STYLE = {
+            {"Food", "🍔", 0xFFF97316}, {"Groceries", "🛒", 0xFF16A34A}, {"Shopping", "🛍️", 0xFFDB2777},
+            {"Travel", "🚕", 0xFF0EA5E9}, {"Fuel", "⛽", 0xFFEA580C}, {"Bills & Utilities", "💡", 0xFFCA8A04},
+            {"Rent & EMI", "🏠", 0xFF7C3AED}, {"Entertainment", "🎬", 0xFFE11D48}, {"Health", "💊", 0xFF10B981},
+            {"Education", "📚", 0xFF2563EB}, {"Investments", "📈", 0xFF0D9488}, {"Transfers", "🔁", 0xFF64748B},
+            {"Cash", "💵", 0xFF65A30D}, {"Income", "💰", 0xFF059669}, {"Other", "📦", 0xFF6B7280},
+    };
+
+    public static String emoji(String category) {
+        for (Object[] st : STYLE) if (st[0].equals(category)) return (String) st[1];
+        return "📦";
+    }
+
+    public static int color(String category) {
+        for (Object[] st : STYLE) if (st[0].equals(category)) return (Integer) st[2];
+        return 0xFF6B7280;
+    }
+
     public static String categorize(String text) {
         String t = " " + text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ") + " ";
         for (String[] rule : RULES) {
