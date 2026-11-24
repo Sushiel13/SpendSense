@@ -62,11 +62,10 @@ final class SettingsScreen {
             c.addView(status("● Off", Ui.RED, "Allow SMS access so SpendSense can read your transaction messages."));
             View b = Ui.button(a, "Turn on", Ui.PRIMARY, Color.WHITE);
             b.setOnClickListener(v -> {
-                if (a.shouldShowRequestPermissionRationale(android.Manifest.permission.READ_SMS)
+                if (a.shouldShowRequestPermissionRationale(AutoSms.PERMISSIONS[0])
                         || !a.prefs.getBoolean("askedOnce", false)) {
                     a.prefs.edit().putBoolean("askedOnce", true).apply();
-                    a.requestPermissions(new String[]{android.Manifest.permission.READ_SMS,
-                            android.Manifest.permission.RECEIVE_SMS}, 1);
+                    a.requestPermissions(AutoSms.PERMISSIONS, 1);
                 } else {
                     // Permanently denied: open the app's settings page
                     Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,

@@ -96,8 +96,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     boolean hasSms() {
-        return BuildConfig.SMS_AUTO
-                && checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED;
+        return BuildConfig.SMS_AUTO && AutoSms.granted(this);
     }
 
     // ---------------- Onboarding (automatic build) ----------------
@@ -149,9 +148,7 @@ public class MainActivity extends AppCompatActivity {
 
         View allow = Ui.button(this, "Allow SMS access", Color.WHITE, Ui.PRIMARY);
         allow.setOnClickListener(v -> {
-            List<String> perms = new ArrayList<>();
-            perms.add(Manifest.permission.READ_SMS);
-            perms.add(Manifest.permission.RECEIVE_SMS);
+            List<String> perms = new ArrayList<>(java.util.Arrays.asList(AutoSms.PERMISSIONS));
             if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS);
             requestPermissions(perms.toArray(new String[0]), REQ_SMS);
         });
@@ -298,7 +295,7 @@ public class MainActivity extends AppCompatActivity {
         scanAdded = 0;
         if (announce) refresh();
         new Thread(() -> {
-            int added = SmsImporter.scanInbox(this, since, (done, total, add) -> {
+            int added = AutoSms.scanInbox(this, since, (done, total, add) -> {
                 scanDone = done;
                 scanTotal = total;
                 scanAdded = add;

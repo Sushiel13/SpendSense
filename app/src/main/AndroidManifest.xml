@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Base ("lite") build: no SMS permission and no INTERNET permission.
-         The "full" flavour adds SMS reading in src/full/AndroidManifest.xml (for Google Play). -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Base ("lite") build asks for no permissions at all, and contains no SMS-reading code.
+         The "full" flavour adds SMS reading in src/full/ (for Google Play / adb installs). -->
 
     <application
         android:allowBackup="false"

@@ -1,8 +1,6 @@
 package in.appbucket.spendsense;
 
 import android.content.Context;
-import android.database.Cursor;
-import android.net.Uri;
 
 import java.util.Locale;
 
@@ -69,42 +67,5 @@ public final class SmsImporter {
     /** Progress callback for long scans. */
     public interface Progress {
         void update(int scanned, int total, int added);
-    }
-
-    /** Scans the SMS inbox from {@code sinceMillis}. Returns how many new transactions were added. */
-    public static int scanInbox(Context ctx, long sinceMillis) {
-        return scanInbox(ctx, sinceMillis, null);
-    }
-
-    public static int scanInbox(Context ctx, long sinceMillis, Progress progress) {
-        int added = 0;
-        Uri inbox = Uri.parse("content://sms/inbox");
-        String[] cols = {"address", "body", "date"};
-        android.database.sqlite.SQLiteDatabase db = ExpenseDb.get(ctx).getWritableDatabase();
-        try (Cursor c = ctx.getContentResolver().query(inbox, cols, "date>=?",
-                new String[]{String.valueOf(sinceMillis)}, "date ASC")) {
-            if (c == null) return 0;
-            int total = c.getCount(), scanned = 0;
-            db.beginTransaction();
-            try {
-                while (c.moveToNext()) {
-                    if (handle(ctx, c.getString(0), c.getString(1), c.getLong(2)) != null) added++;
-                    scanned++;
-                    if (scanned % 200 == 0) {
-                        db.setTransactionSuccessful();
-                        db.endTransaction();
-                        db.beginTransaction();
-                        if (progress != null) progress.update(scanned, total, added);
-                    }
-                }
-                db.setTransactionSuccessful();
-            } finally {
-                db.endTransaction();
-            }
-            if (progress != null) progress.update(scanned, total, added);
-        } catch (SecurityException ignored) {
-            // permission revoked mid-scan
-        }
-        return added;
     }
 }
