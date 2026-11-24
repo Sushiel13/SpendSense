@@ -22,7 +22,7 @@ Other banks generally work too, since the parser looks for common patterns (`Rs/
 
 ## Build
 Push to `main` → GitHub Actions runs the parser tests and builds `SpendSense.apk` (download from the run's artifacts).
-Push a tag like `v1.0.0` → the APK is also attached to a GitHub Release.
+Each push to `main` also attaches the APK to a GitHub Release named after `versionName` (raise it in `app/build.gradle` for a new release).
 
 For consistent signing (so updates install over the old version), add these repo secrets:
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
