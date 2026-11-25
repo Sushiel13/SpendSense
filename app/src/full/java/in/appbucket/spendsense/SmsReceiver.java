@@ -24,6 +24,7 @@ public class SmsReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         if (!Telephony.Sms.Intents.SMS_RECEIVED_ACTION.equals(intent.getAction())) return;
+        if (SmsStore.isDefault(ctx)) return; // SmsDeliverReceiver stores, tracks and notifies
         SmsMessage[] msgs = Telephony.Sms.Intents.getMessagesFromIntent(intent);
         if (msgs == null || msgs.length == 0) return;
 

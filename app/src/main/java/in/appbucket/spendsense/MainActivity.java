@@ -36,7 +36,7 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    static final int ID_HOME = 1, ID_TX = 2, ID_INSIGHTS = 3, ID_SETTINGS = 4;
+    static final int ID_HOME = 1, ID_TX = 2, ID_INSIGHTS = 3, ID_SETTINGS = 4, ID_MESSAGES = 5;
     private static final int REQ_SMS = 1;
     private static final int REQ_EXPORT = 2;
 
@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
     volatile int scanDone, scanTotal, scanAdded;
 
     private FrameLayout content;
+    private FloatingActionButton fab;
     private BottomNavigationView nav;
     private View monthBar;
     private TextView monthLabel, title;
@@ -167,7 +168,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
-        if (code != REQ_SMS) return;
+        if (code != REQ_SMS) {
+            AutoSms.onContactsResult();
+            refresh();
+            return;
+        }
         if (!hasSms()) {
             Toast.makeText(this, "Without SMS access you can still add spends by hand", Toast.LENGTH_LONG).show();
             prefs.edit().putBoolean("skipOnboarding", true).apply();
@@ -219,7 +224,11 @@ public class MainActivity extends AppCompatActivity {
         fab.setBackgroundTintList(ColorStateList.valueOf(Ui.PRIMARY));
         fab.setImageTintList(ColorStateList.valueOf(Color.WHITE));
         fab.setContentDescription("Add transaction");
-        fab.setOnClickListener(v -> addMenu());
+        fab.setOnClickListener(v -> {
+            if (current == ID_MESSAGES) AutoSms.newMessage(this);
+            else addMenu();
+        });
+        this.fab = fab;
         FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
         fp.setMargins(0, 0, Ui.dp(this, 20), Ui.dp(this, 20));
         body.addView(fab, fp);
@@ -229,9 +238,10 @@ public class MainActivity extends AppCompatActivity {
         nav.setBackgroundColor(Ui.SURFACE);
         nav.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_LABELED);
         nav.getMenu().add(0, ID_HOME, 0, "Home").setIcon(R.drawable.ic_home);
-        nav.getMenu().add(0, ID_TX, 1, "Transactions").setIcon(R.drawable.ic_list);
-        nav.getMenu().add(0, ID_INSIGHTS, 2, "Insights").setIcon(R.drawable.ic_chart);
-        nav.getMenu().add(0, ID_SETTINGS, 3, "Settings").setIcon(R.drawable.ic_settings);
+        if (AutoSms.MESSAGING) nav.getMenu().add(0, ID_MESSAGES, 1, "Messages").setIcon(R.drawable.ic_message);
+        nav.getMenu().add(0, ID_TX, 2, "Spends").setIcon(R.drawable.ic_list);
+        nav.getMenu().add(0, ID_INSIGHTS, 3, "Insights").setIcon(R.drawable.ic_chart);
+        nav.getMenu().add(0, ID_SETTINGS, 4, "Settings").setIcon(R.drawable.ic_settings);
         nav.setOnItemSelectedListener(item -> {
             current = item.getItemId();
             refresh();
@@ -251,11 +261,16 @@ public class MainActivity extends AppCompatActivity {
     void refresh() {
         if (!shellShown || content == null) return;
         monthLabel.setText(Format.shortMonth(monthStart()) + " " + month.get(Calendar.YEAR));
-        monthBar.setVisibility(current == ID_SETTINGS ? View.GONE : View.VISIBLE);
-        String[] titles = {"", "SpendSense", "Transactions", "Insights", "Settings"};
+        monthBar.setVisibility(current == ID_SETTINGS || current == ID_MESSAGES ? View.GONE : View.VISIBLE);
+        if (fab != null) {
+            fab.setImageResource(current == ID_MESSAGES ? R.drawable.ic_message : R.drawable.ic_add);
+            fab.setContentDescription(current == ID_MESSAGES ? "New message" : "Add transaction");
+        }
+        String[] titles = {"", "SpendSense", "Transactions", "Insights", "Settings", "Messages"};
         title.setText(titles[current]);
         View v;
-        if (current == ID_TX) v = new TransactionsScreen(this).build();
+        if (current == ID_MESSAGES && AutoSms.MESSAGING) v = AutoSms.messagesScreen(this);
+        else if (current == ID_TX) v = new TransactionsScreen(this).build();
         else if (current == ID_INSIGHTS) v = new InsightsScreen(this).build();
         else if (current == ID_SETTINGS) v = new SettingsScreen(this).build();
         else v = new HomeScreen(this).build();
@@ -433,6 +448,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == 4) { // default SMS app request
+            refresh();
+            Toast.makeText(this, AutoSms.isDefaultSmsApp(this) ? "SpendSense is now your SMS app"
+                    : "SMS app not changed", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (req != REQ_EXPORT || res != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         StringBuilder sb = new StringBuilder("Date,Type,Amount,Merchant,Category,Mode,Bank,Account,Note\n");

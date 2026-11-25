@@ -155,6 +155,14 @@ public class ExpenseDb extends SQLiteOpenHelper {
         return out;
     }
 
+    /** True if this SMS was already turned into a transaction (or deleted by the user). */
+    public boolean hasKey(String smsKey) {
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM expenses WHERE sms_key=? AND hidden=0", new String[]{smsKey})) {
+            return c.moveToFirst();
+        }
+    }
+
     public int count() {
         try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM expenses WHERE hidden=0", null)) {
             return c.moveToFirst() ? c.getInt(0) : 0;

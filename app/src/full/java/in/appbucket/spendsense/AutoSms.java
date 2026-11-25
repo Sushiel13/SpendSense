@@ -54,4 +54,32 @@ final class AutoSms {
         }
         return added;
     }
+
+    // ---------------- Messaging (full build only) ----------------
+
+    static final boolean MESSAGING = true;
+
+    static android.view.View messagesScreen(MainActivity a) {
+        return new MessagesScreen(a).build();
+    }
+
+    static void newMessage(MainActivity a) {
+        a.startActivity(new android.content.Intent(a, ConversationActivity.class));
+    }
+
+    static boolean isDefaultSmsApp(Context c) {
+        return SmsStore.isDefault(c);
+    }
+
+    static void askToBeDefault(MainActivity a) {
+        MessagesScreen.confirmDefault(a);
+    }
+
+    static void openDefaultAppsSettings(MainActivity a) {
+        MessagesScreen.openDefaultAppsSettings(a);
+    }
+
+    static void onContactsResult() {
+        SmsStore.clearNameCache();
+    }
 }

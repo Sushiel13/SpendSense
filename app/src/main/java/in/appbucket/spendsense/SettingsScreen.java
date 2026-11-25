@@ -23,6 +23,7 @@ final class SettingsScreen {
     View build() {
         LinearLayout col = Ui.v(a);
         col.addView(trackingCard());
+        if (AutoSms.MESSAGING && a.hasSms()) col.addView(smsAppCard());
         col.addView(budgetCard());
 
         LinearLayout data = Ui.card(a);
@@ -91,6 +92,24 @@ final class SettingsScreen {
             more.setPadding(0, Ui.dp(a, 10), 0, 0);
             c.addView(more);
         }
+        return c;
+    }
+
+    private View smsAppCard() {
+        LinearLayout c = Ui.card(a);
+        c.addView(Ui.text(a, "Messaging", 16, Ui.INK, true));
+        boolean def = AutoSms.isDefaultSmsApp(a);
+        c.addView(status(def ? "● SpendSense is your SMS app" : "● Another app handles your SMS",
+                def ? Ui.GREEN : Ui.MUTED,
+                def ? "Messages are received, stored and sent by SpendSense. Picture messages (MMS) aren't supported."
+                        : "Make SpendSense your SMS app to send and reply from the Messages tab."));
+        View b = def ? Ui.button(a, "Change default SMS app", Ui.PRIMARY_SOFT, Ui.PRIMARY)
+                : Ui.button(a, "Set as default SMS app", Ui.PRIMARY, Color.WHITE);
+        b.setOnClickListener(v -> {
+            if (def) AutoSms.openDefaultAppsSettings(a);
+            else AutoSms.askToBeDefault(a);
+        });
+        c.addView(b, btnLp());
         return c;
     }
 
