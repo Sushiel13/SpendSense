@@ -35,12 +35,14 @@ public final class SmsParser {
             + "|will be debited|to be debited|would be debited|scheduled|is due|due date|due on|due by|min(?:imum)?\\.? (?:amt|amount) due"
             + "|total (?:amt|amount) due|statement (?:for|is generated)|has requested|collect request|requested money|payment request"
             + "|pre-?approved|loan offer|apply now|recharge now|\\bfailed\\b|\\bdeclined\\b|could not be|unsuccessful"
-            + "|reminder|bill generated|e-?mandate (?:registered|created)|is pending)");
+            + "|reminder|bill generated|e-?mandate (?:registered|created)|is pending"
+            + "|received for your|recharge (?:of rs\\.? ?[\\d,.]+ )?(?:is )?successful|balance is|bal(?:ance)? as on)");
 
     private static final Pattern STRONG_DEBIT = Pattern.compile(
-            "(?i)\\b(debited|spent|paid|sent|withdrawn|withdrawal|purchased?|charged|deducted|transferred to)\\b");
+            "(?i)\\b(debited|spent|paid|sent|withdrawn|withdrawal|purchased?|charged|deducted|transferred (?:to|from)"
+            + "|thank you for using|trxn|done on your|used at)\\b");
     private static final Pattern CREDIT = Pattern.compile(
-            "(?i)\\b(credited(?!\\s+to)|received(?!\\s+(?:a\\s+)?request)|deposited|refund(?:ed)?|cashback of)\\b");
+            "(?i)\\b(credited(?!\\s+to\\s+(?:beneficiary|vpa|[\\w.\\-]+@))|received(?!\\s+(?:a\\s+)?request)|deposited|refund(?:ed)?|cashback of)\\b");
     private static final Pattern WEAK_DEBIT = Pattern.compile("(?i)\\b(debit|dr|txn|transaction|used|payment)\\b");
 
     private static final Pattern ACCOUNT = Pattern.compile(
@@ -70,6 +72,42 @@ public final class SmsParser {
         if (sender == null) return false;
         String s = sender.replaceAll("[\\s+\\-]", "");
         return s.matches(".*[A-Za-z].*");
+    }
+
+    private static final Pattern ACCOUNT_MASK = Pattern.compile(
+            "(?i)(?:a/?c|acct|account|card)\\s*(?:no\\.?)?\\s*(?:ending\\s*(?:with|in)?\\s*)?[x*.]{1,}\\s*\\d{3,}");
+    private static final Pattern TX_WORD = Pattern.compile(
+            "(?i)\\b(debited|credited|spent|withdrawn|dr\\.?|cr\\.?)\\b");
+
+    /**
+     * True for SMS from banks: business sender IDs (VM-HDFCBK), or a phone number when the text
+     * clearly is a bank alert (masked account number plus debited/credited). Personal chats fail this.
+     */
+    public static boolean isBankSms(String sender, String body) {
+        if (looksLikeBankSender(sender)) return true;
+        if (body == null) return false;
+        return ACCOUNT_MASK.matcher(body).find() && TX_WORD.matcher(body).find();
+    }
+
+    private static final Pattern MONEY_WORD = Pattern.compile(
+            "(?i)\\b(debit|credit|paid|pay|spent|sent|received|txn|trxn|transaction|withdraw|purchase|payment|transfer|refund|emi|upi)");
+
+    /**
+     * For SMS the parser couldn't read: true if it still looks like it might be a transaction
+     * (has an amount and a money word, and isn't an OTP/offer/reminder). Used for the review list.
+     */
+    public static boolean maybeTransaction(String body) {
+        if (body == null) return false;
+        String text = body.replaceAll("\\s+", " ");
+        if (IGNORE.matcher(text).find()) return false;
+        if (text.toLowerCase(Locale.ROOT).matches(".*\\b(off|offer|discount|win|cashback upto|upto|coupon|code)\\b.*")) return false;
+        return findAmount(text) != null && MONEY_WORD.matcher(text).find();
+    }
+
+    /** Best guess of the amount in a message (for pre-filling a manual entry). */
+    public static double guessAmount(String body) {
+        Double d = body == null ? null : findAmount(body.replaceAll("\\s+", " "));
+        return d == null ? 0 : d;
     }
 
     public static Result parse(String sender, String body) {

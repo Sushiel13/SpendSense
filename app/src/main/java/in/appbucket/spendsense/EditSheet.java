@@ -31,9 +31,9 @@ final class EditSheet {
     private EditSheet() {}
 
     static void show(MainActivity a, Expense existing) {
-        final boolean isNew = existing == null;
-        final Expense e = isNew ? new Expense() : existing;
-        if (isNew) {
+        final boolean isNew = existing == null || existing.id == 0;
+        final Expense e = existing == null ? new Expense() : existing;
+        if (existing == null) {
             e.ts = System.currentTimeMillis();
             e.debit = true;
             e.mode = "Cash";
@@ -76,7 +76,7 @@ final class EditSheet {
         amount.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         amount.setTextSize(30);
         amount.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        if (!isNew) amount.setText(MainActivity.plain(e.amount));
+        if (!isNew || e.amount > 0) amount.setText(MainActivity.plain(e.amount));
         col.addView(label(a, "Amount (₹)"));
         col.addView(amount, Ui.lp(-1, -2));
 
@@ -144,7 +144,7 @@ final class EditSheet {
             col.addView(applyAll);
         }
 
-        if (!isNew) {
+        if (!isNew || !e.smsBody.isEmpty()) {
             LinearLayout info = Ui.v(a);
             info.setBackground(Ui.round(a, 0xFFF8F9FC, 12));
             info.setPadding(Ui.dp(a, 14), Ui.dp(a, 12), Ui.dp(a, 14), Ui.dp(a, 12));
@@ -206,8 +206,9 @@ final class EditSheet {
             e.note = note.getText().toString().trim();
             e.ts = ts[0];
             if (isNew) {
-                e.smsKey = "manual-" + UUID.randomUUID();
+                if (e.smsKey == null || e.smsKey.isEmpty()) e.smsKey = "manual-" + UUID.randomUUID();
                 a.db.insertIfNew(e);
+                a.db.finishReview(e.smsKey);
             } else {
                 a.db.update(e);
                 if (e.debit) a.db.rememberMerchant(e.merchant, e.category, applyAll.isChecked());

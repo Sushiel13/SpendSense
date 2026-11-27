@@ -57,4 +57,23 @@ public class SmsParserTest {
             assertEquals(c[0], c[1], d == 0 ? "none" : f.format(new java.util.Date(d)));
         }
     }
+
+    @Test
+    public void moreBankFormats() {
+        check("AX-HDFCBK", "Thank you for using your HDFC Bank Credit Card ending 1234 for Rs 2,499.00 at FLIPKART on 12-11-2026 10:15:22. Avl bal Rs 1,02,000", 2499.0, true, "Flipkart");
+        check("VM-SBICRD", "Trxn of Rs 1,200.00 done on your SBI Credit Card ending 4321 at SWIGGY on 12/11/26. Not you? Call 18001801290", 1200.0, true, "Swiggy");
+        check("AD-SBIINB", "Rs.10,000.00 transferred from A/c ...1234 to:IMPS/P2A/431212/RAHUL. Total Bal:Rs.5,000.00CR.", 10000.0, true, null);
+        check("VM-HDFCBK", "Rs.25,000.00 credited to HDFC Bank A/c XX1234 on 01-11-26 by a/c linked to VPA rahul@okhdfc (UPI Ref No 431212121212).", 25000.0, false, null);
+        check("VM-SBIINB", "Dear Customer, INR 500.00 credited to your A/c No XX1234 on 12/11/2026 through UPI of SURESH Ref No 431212121212", 500.0, false, null);
+        check("VM-HDFCBK", "Rs.15,430.00 debited from a/c **1234 on 05-11-26 towards NACH-HDFC HOME LOAN EMI. Avl bal Rs.40,000", 15430.0, true, null);
+        check("AD-AIRTEL", "Payment of Rs 499 received for your Airtel mobile 98XXXXXX10. Thank you!", null, null, null);
+        check("VM-SBIINB", "Your A/c X1234 balance is Rs 12,345.00 as on 12-11-26.", null, null, null);
+    }
+
+    @Test
+    public void bankSmsFromPhoneNumbers() {
+        assertTrue(SmsParser.isBankSms("+918860012345", "Rs.300.00 debited from A/c XX1234 on 12-11-26 via UPI to SHOP -Cosmos Bank"));
+        assertTrue(!SmsParser.isBankSms("+919876543210", "Bro send Rs 500 for dinner, I paid last time"));
+        assertTrue(SmsParser.isBankSms("VM-HDFCBK", "anything"));
+    }
 }

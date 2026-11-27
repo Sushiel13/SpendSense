@@ -36,6 +36,9 @@ final class HomeScreen {
 
         col.addView(hero(spent, received, count));
 
+        int toReview = a.db.pendingReviewCount();
+        if (toReview > 0 && !a.scanning) col.addView(reviewCard(toReview));
+
         if (all.isEmpty() && !a.scanning) {
             col.addView(emptyState());
             return a.scroller(col);
@@ -124,6 +127,25 @@ final class HomeScreen {
         stats.addView(Ui.stat(a, "Spends", String.valueOf(count), 0xB3FFFFFF, Color.WHITE), Ui.weight(1));
         stats.addView(Ui.stat(a, "Per day", Format.money(Math.round(spent / Math.max(1, days))), 0xB3FFFFFF, Color.WHITE), Ui.weight(1));
         c.addView(stats);
+        return c;
+    }
+
+    private View reviewCard(int n) {
+        LinearLayout c = Ui.card(a);
+        c.setBackground(Ui.round(a, 0xFFFFF7E6, 18));
+        LinearLayout row = Ui.h(a);
+        TextView ic = Ui.text(a, "🔎", 20, Ui.INK, false);
+        ic.setGravity(Gravity.CENTER);
+        ic.setBackground(Ui.round(a, 0xFFFFE8B3, 12));
+        row.addView(ic, Ui.lp(Ui.dp(a, 42), Ui.dp(a, 42)));
+        LinearLayout t = Ui.v(a);
+        t.setPadding(Ui.dp(a, 12), 0, Ui.dp(a, 8), 0);
+        t.addView(Ui.text(a, n + (n == 1 ? " message to check" : " messages to check"), 15, Ui.INK, true));
+        t.addView(Ui.text(a, "They mention money but couldn't be read automatically", 12, Ui.MUTED, false));
+        row.addView(t, Ui.weight(1));
+        row.addView(Ui.text(a, "Review ›", 14, 0xFFB45309, true));
+        c.addView(row);
+        c.setOnClickListener(v -> ReviewSheet.show(a));
         return c;
     }
 

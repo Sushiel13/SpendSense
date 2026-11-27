@@ -21,9 +21,15 @@ public final class SmsImporter {
 
     /** Returns the stored expense, or null if the SMS isn't a transaction or was already stored. */
     public static Expense handle(Context ctx, String sender, String body, long ts) {
-        if (!SmsParser.looksLikeBankSender(sender)) return null;
+        if (!SmsParser.isBankSms(sender, body)) return null;
         SmsParser.Result r = SmsParser.parse(sender, body);
-        if (r == null) return null;
+        if (r == null) {
+            // Not readable automatically, but might be money: keep it for the user to review.
+            if (SmsParser.maybeTransaction(body)) {
+                ExpenseDb.get(ctx).addReview(keyFor(sender, body), ts, sender, body, SmsParser.guessAmount(body));
+            }
+            return null;
+        }
         Expense e = new Expense();
         e.smsKey = keyFor(sender, body);
         e.ts = ts;

@@ -21,7 +21,7 @@ public class ExpenseDb extends SQLiteOpenHelper {
     }
 
     private ExpenseDb(Context c) {
-        super(c, "spendsense.db", null, 1);
+        super(c, "spendsense.db", null, 2);
     }
 
     @Override
@@ -47,10 +47,64 @@ public class ExpenseDb extends SQLiteOpenHelper {
                 "hidden INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE INDEX idx_ts ON expenses(ts)");
         db.execSQL("CREATE TABLE merchant_rules (merchant TEXT PRIMARY KEY, category TEXT NOT NULL)");
+        createReview(db);
     }
 
     @Override
-    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) { }
+    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) {
+        if (oldV < 2) createReview(db);
+    }
+
+    private static void createReview(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS review (sms_key TEXT PRIMARY KEY, ts INTEGER, sender TEXT, "
+                + "body TEXT, amount REAL, done INTEGER NOT NULL DEFAULT 0)");
+    }
+
+    /** An SMS that might be a transaction but couldn't be read automatically. */
+    public static final class Review {
+        public String key, sender, body;
+        public long ts;
+        public double amount;
+    }
+
+    public void addReview(String key, long ts, String sender, String body, double amount) {
+        ContentValues v = new ContentValues();
+        v.put("sms_key", key);
+        v.put("ts", ts);
+        v.put("sender", sender);
+        v.put("body", body);
+        v.put("amount", amount);
+        getWritableDatabase().insertWithOnConflict("review", null, v, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    public List<Review> pendingReviews() {
+        List<Review> out = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT sms_key, ts, sender, body, amount FROM review WHERE done=0 ORDER BY ts DESC LIMIT 300", null)) {
+            while (c.moveToNext()) {
+                Review r = new Review();
+                r.key = c.getString(0);
+                r.ts = c.getLong(1);
+                r.sender = nz(c.getString(2));
+                r.body = nz(c.getString(3));
+                r.amount = c.getDouble(4);
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    public int pendingReviewCount() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM review WHERE done=0", null)) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    public void finishReview(String key) {
+        ContentValues v = new ContentValues();
+        v.put("done", 1);
+        getWritableDatabase().update("review", v, "sms_key=?", new String[]{key});
+    }
 
     /** Inserts if the SMS was not seen before. Returns new row id or -1 if duplicate. */
     public long insertIfNew(Expense e) {

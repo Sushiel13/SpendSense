@@ -38,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
 
     static final int ID_HOME = 1, ID_TX = 2, ID_INSIGHTS = 3, ID_SETTINGS = 4, ID_MESSAGES = 5;
     private static final int REQ_SMS = 1;
+    /** Bump when SmsParser learns new formats, so existing users get their inbox re-read once. */
+    static final int SMS_READER_VERSION = 2;
     private static final int REQ_EXPORT = 2;
 
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -83,8 +85,11 @@ public class MainActivity extends AppCompatActivity {
         if (!shellShown) return;
         if (hasSms() && !scanning) {
             long last = prefs.getLong("lastScan", 0);
-            // First time: read the whole inbox. Later: catch up on anything missed.
-            startScan(last == 0 ? 0 : last - 24L * 60 * 60 * 1000, last == 0);
+            // First time, or after the SMS reader improves: read the whole inbox.
+            // Otherwise just catch up on anything missed since the last check.
+            boolean full = last == 0 || prefs.getInt("readerVersion", 0) < SMS_READER_VERSION;
+            if (full) prefs.edit().putInt("readerVersion", SMS_READER_VERSION).apply();
+            startScan(full ? 0 : last - 24L * 60 * 60 * 1000, full);
         }
         refresh();
     }
